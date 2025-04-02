@@ -8,7 +8,7 @@ import { Link } from "react-router-dom";
 
 const Dashboard: React.FC = () => {
   const { products, productHistory } = useProducts();
-  const { user } = useAuth();
+  const { getUserName } = useAuth();
   
   // Calculate total products value
   const totalValue = products.reduce((sum, product) => sum + product.price * product.stock, 0);
@@ -46,7 +46,7 @@ const Dashboard: React.FC = () => {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Welcome back, {user?.name || "User"}
+          Welcome back, {getUserName()}
         </p>
       </div>
       

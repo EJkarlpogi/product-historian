@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, LogOut, User } from "lucide-react";
 
 const DashboardHeader: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, getUserName } = useAuth();
 
   const getInitials = (name: string) => {
     return name
@@ -24,6 +24,8 @@ const DashboardHeader: React.FC = () => {
       .join("")
       .toUpperCase();
   };
+
+  const userName = getUserName();
 
   return (
     <header className="border-b bg-white">
@@ -42,7 +44,7 @@ const DashboardHeader: React.FC = () => {
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar>
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name ? getInitials(user.name) : "U"}
+                  {getInitials(userName)}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -51,7 +53,7 @@ const DashboardHeader: React.FC = () => {
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled className="flex justify-between">
-              <span>{user?.name}</span>
+              <span>{userName}</span>
             </DropdownMenuItem>
             <DropdownMenuItem disabled className="flex justify-between text-muted-foreground text-xs">
               <span>{user?.email}</span>

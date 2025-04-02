@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -156,7 +155,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [products, setProducts] = useState<Product[]>([]);
   const [productHistory, setProductHistory] = useState<ProductHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, getUserName } = useAuth();
 
   useEffect(() => {
     // Simulate fetching data from an API
@@ -236,7 +235,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
             },
           },
         },
-        changedBy: user?.name || "Unknown User",
+        changedBy: getUserName(),
       };
       
       setProductHistory((prevHistory) => [...prevHistory, historyEntry]);
@@ -301,7 +300,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
         timestamp,
         changeType,
         changes,
-        changedBy: user?.name || "Unknown User",
+        changedBy: getUserName(),
       };
       
       setProductHistory((prevHistory) => [...prevHistory, historyEntry]);
@@ -351,7 +350,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
               after: "deleted",
             },
           },
-          changedBy: user?.name || "Unknown User",
+          changedBy: getUserName(),
         };
         
         setProductHistory((prevHistory) => [...prevHistory, historyEntry]);
@@ -386,4 +385,4 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
 };
 
 // Import inside the file to avoid circular dependencies
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@/contexts/AuthContext";

@@ -12,6 +12,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  getUserName: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,6 +56,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const getUserName = (): string => {
+    if (!user) return "User";
+    
+    // Try to get name from user metadata
+    const userData = user.user_metadata;
+    if (userData && userData.name) {
+      return userData.name;
+    }
+    
+    // Fallback to email or id
+    return user.email?.split('@')[0] || user.id.substring(0, 8);
+  };
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
@@ -122,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         signup,
         logout,
+        getUserName,
       }}
     >
       {children}
