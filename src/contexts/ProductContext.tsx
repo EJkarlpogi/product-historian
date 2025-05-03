@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface ProductHistory {
   id: string;
@@ -10,6 +10,12 @@ export interface ProductHistory {
   changeType: "created" | "updated" | "price_changed" | "stock_changed" | "image_updated";
   changes: Record<string, { before: any; after: any }>;
   changedBy: string;
+}
+
+export interface PriceHistory {
+  prodcode: string;
+  effdate: string;
+  unitprice: number;
 }
 
 export interface Product {
@@ -28,11 +34,14 @@ export interface Product {
 interface ProductContextType {
   products: Product[];
   productHistory: ProductHistory[];
+  priceHistory: PriceHistory[];
   isLoading: boolean;
   addProduct: (product: Omit<Product, "id" | "createdAt" | "updatedAt">) => Promise<Product>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<Product>;
   getProduct: (id: string) => Product | undefined;
   getProductHistory: (productId: string) => ProductHistory[];
+  getProductPriceHistory: (productId: string) => PriceHistory[];
+  updateProductPrice: (productId: string, newPrice: number, effectiveDate: string) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 }
 
@@ -153,9 +162,34 @@ const initialProductHistory: ProductHistory[] = [
   },
 ];
 
+// Sample initial price history data
+const initialPriceHistory: PriceHistory[] = [
+  {
+    prodcode: "PHONE-X-001",
+    effdate: "2023-05-15",
+    unitprice: 999.99,
+  },
+  {
+    prodcode: "LAPTOP-PRO-002",
+    effdate: "2023-06-10",
+    unitprice: 1399.99,
+  },
+  {
+    prodcode: "LAPTOP-PRO-002",
+    effdate: "2023-06-20",
+    unitprice: 1499.99,
+  },
+  {
+    prodcode: "AUDIO-HP-003",
+    effdate: "2023-07-05",
+    unitprice: 249.99,
+  },
+];
+
 export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productHistory, setProductHistory] = useState<ProductHistory[]>([]);
+  const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { getUserName } = useAuth();
 
@@ -169,6 +203,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // Load from localStorage or use initial data
         const savedProducts = localStorage.getItem("products");
         const savedHistory = localStorage.getItem("productHistory");
+        const savedPriceHistory = localStorage.getItem("priceHistory");
         
         if (savedProducts) {
           setProducts(JSON.parse(savedProducts));
@@ -181,6 +216,16 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } else {
           setProductHistory(initialProductHistory);
         }
+
+        if (savedPriceHistory) {
+          setPriceHistory(JSON.parse(savedPriceHistory));
+        } else {
+          setPriceHistory(initialPriceHistory);
+        }
+
+        // Also attempt to fetch price history from Supabase
+        await fetchPriceHistoryFromSupabase();
+        
       } catch (error) {
         console.error("Error loading products:", error);
         toast.error("Failed to load products");
@@ -204,6 +249,37 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       localStorage.setItem("productHistory", JSON.stringify(productHistory));
     }
   }, [productHistory]);
+
+  useEffect(() => {
+    if (priceHistory.length > 0) {
+      localStorage.setItem("priceHistory", JSON.stringify(priceHistory));
+    }
+  }, [priceHistory]);
+
+  // Fetch price history from Supabase
+  const fetchPriceHistoryFromSupabase = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pricehist')
+        .select('*')
+        .order('effdate', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        const formattedData: PriceHistory[] = data.map(item => ({
+          prodcode: item.prodcode,
+          effdate: item.effdate,
+          unitprice: item.unitprice,
+        }));
+        setPriceHistory(formattedData);
+      }
+    } catch (error) {
+      console.error("Error fetching price history from Supabase:", error);
+    }
+  };
 
   const addProduct = async (productData: Omit<Product, "id" | "createdAt" | "updatedAt">) => {
     setIsLoading(true);
@@ -241,6 +317,29 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
       
       setProductHistory((prevHistory) => [...prevHistory, historyEntry]);
+      
+      // Add initial price in price history
+      const initialPrice: PriceHistory = {
+        prodcode: newProduct.sku,
+        effdate: new Date().toISOString().split('T')[0], // Current date in YYYY-MM-DD format
+        unitprice: newProduct.price,
+      };
+      
+      setPriceHistory(prevPriceHistory => [...prevPriceHistory, initialPrice]);
+      
+      // Try to add to Supabase if available
+      try {
+        await supabase
+          .from('pricehist')
+          .insert([{
+            prodcode: newProduct.sku,
+            effdate: initialPrice.effdate,
+            unitprice: newProduct.price
+          }]);
+      } catch (error) {
+        console.error("Error adding initial price to Supabase:", error);
+        // Continue anyway as local data is already updated
+      }
       
       toast.success("Product added successfully");
       return newProduct;
@@ -328,6 +427,85 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   };
 
+  const getProductPriceHistory = (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return [];
+    
+    return priceHistory
+      .filter(ph => ph.prodcode === product.sku)
+      .sort((a, b) => new Date(b.effdate).getTime() - new Date(a.effdate).getTime());
+  };
+
+  const updateProductPrice = async (productId: string, newPrice: number, effectiveDate: string) => {
+    setIsLoading(true);
+    try {
+      const product = getProduct(productId);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+      
+      // Create new price history entry
+      const newPriceEntry: PriceHistory = {
+        prodcode: product.sku,
+        effdate: effectiveDate, 
+        unitprice: newPrice,
+      };
+      
+      // Add to price history
+      setPriceHistory(prevPriceHistory => [...prevPriceHistory, newPriceEntry]);
+      
+      // Try to add to Supabase if available
+      try {
+        await supabase
+          .from('pricehist')
+          .insert([{
+            prodcode: product.sku,
+            effdate: effectiveDate,
+            unitprice: newPrice
+          }]);
+      } catch (error) {
+        console.error("Error adding price history to Supabase:", error);
+        // Continue anyway as local data is already updated
+      }
+      
+      // If the effective date is today or in the past, update the current product price
+      const today = new Date().toISOString().split('T')[0];
+      if (effectiveDate <= today) {
+        await updateProduct(productId, { price: newPrice });
+      }
+      
+      // Record in product history
+      const timestamp = new Date().toISOString();
+      const historyEntry: ProductHistory = {
+        id: `hist-${Date.now()}`,
+        productId,
+        timestamp,
+        changeType: "price_changed",
+        changes: {
+          price: {
+            before: product.price,
+            after: newPrice,
+          },
+          effectiveDate: {
+            before: null,
+            after: effectiveDate,
+          }
+        },
+        changedBy: getUserName(),
+      };
+      
+      setProductHistory((prevHistory) => [...prevHistory, historyEntry]);
+      
+      toast.success(`Price updated successfully. Effective date: ${effectiveDate}`);
+    } catch (error) {
+      console.error("Error updating product price:", error);
+      toast.error("Failed to update product price");
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const deleteProduct = async (id: string) => {
     setIsLoading(true);
     try {
@@ -373,11 +551,14 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         products,
         productHistory,
+        priceHistory,
         isLoading,
         addProduct,
         updateProduct,
         getProduct,
         getProductHistory,
+        getProductPriceHistory,
+        updateProductPrice,
         deleteProduct,
       }}
     >
