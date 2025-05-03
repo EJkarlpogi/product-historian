@@ -19,9 +19,9 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <ProductProvider>
-          <Toaster />
-          <Sonner />
           <BrowserRouter>
+            <Toaster />
+            <Sonner />
             <Routes>
               <Route path="/" element={<AuthPage />} />
               <Route path="/auth" element={<AuthPage />} />
