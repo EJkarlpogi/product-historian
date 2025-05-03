@@ -30,7 +30,8 @@ const DashboardHeader: React.FC = () => {
   return (
     <header className="border-b bg-white">
       <div className="flex h-16 items-center px-4 gap-4">
-        <SidebarTrigger asChild>
+        {/* Fix: Wrap the Button in a div when using asChild */}
+        <SidebarTrigger>
           <Button variant="outline" size="icon" className="md:hidden">
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle menu</span>
