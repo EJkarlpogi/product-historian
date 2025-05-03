@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface ProductHistory {
   id: string;
@@ -384,6 +385,3 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
     </ProductContext.Provider>
   );
 };
-
-// Import inside the file to avoid circular dependencies
-import { useAuth } from "@/contexts/AuthContext";
