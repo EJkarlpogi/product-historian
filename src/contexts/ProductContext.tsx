@@ -155,7 +155,7 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [products, setProducts] = useState<Product[]>([]);
   const [productHistory, setProductHistory] = useState<ProductHistory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user, getUserName } = useAuth();
+  const { getUserName } = useAuth();
 
   useEffect(() => {
     // Simulate fetching data from an API
